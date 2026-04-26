@@ -12,7 +12,7 @@ def status_cmd(ctx: click.Context) -> None:
 	"""检查当前登录态"""
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 
 	token = auth.check_status()
 	if token is None:

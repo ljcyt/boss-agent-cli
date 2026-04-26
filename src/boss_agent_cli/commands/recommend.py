@@ -19,7 +19,7 @@ def recommend_cmd(ctx: click.Context, page: int, with_score: bool) -> None:
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
 
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 	with get_platform_instance(ctx, auth) as platform:
 		with CacheStore(data_dir / "cache" / "boss_agent.db") as cache:
 			expect_data = None

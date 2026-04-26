@@ -18,7 +18,7 @@ from boss_agent_cli.display import handle_output, render_simple_list
 def doctor_cmd(ctx: click.Context) -> None:
 	"""诊断本地运行环境、依赖和登录条件。"""
 	data_dir = ctx.obj["data_dir"]
-	auth = AuthManager(data_dir)
+	auth = AuthManager(data_dir, platform=ctx.obj.get("platform", "zhipin"))
 	cdp_url = ctx.obj.get("cdp_url")
 
 	checks: list[dict[str, Any]] = []

@@ -17,7 +17,7 @@ def me_cmd(ctx: click.Context, section: str | None, deliver_page: int) -> None:
 	logger = ctx.obj.get("logger")
 
 	try:
-		auth = AuthManager(data_dir, logger=logger)
+		auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 		with get_platform_instance(ctx, auth) as platform:
 			result = {}
 

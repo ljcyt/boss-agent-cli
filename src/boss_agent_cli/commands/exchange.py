@@ -14,7 +14,7 @@ def exchange_cmd(ctx: click.Context, security_id: str, exchange_type: str) -> No
 	"""请求交换联系方式（手机号或微信）"""
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 
 	type_id = 2 if exchange_type == "wechat" else 1
 	type_label = "微信" if exchange_type == "wechat" else "手机号"

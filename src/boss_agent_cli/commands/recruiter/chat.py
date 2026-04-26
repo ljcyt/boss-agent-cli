@@ -17,7 +17,7 @@ def recruiter_chat_cmd(ctx: click.Context, page: int, job_id: str | None, label_
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
 
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 	with get_recruiter_platform_instance(ctx, auth) as platform:
 		result = platform.friend_list(page=page, label_id=label_id, job_id=job_id)
 		data = platform.unwrap_data(result) or {}

@@ -14,8 +14,19 @@ def login_cmd(ctx: click.Context, timeout: int, cookie_source: str | None, cdp: 
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
 	cdp_url = ctx.obj.get("cdp_url")
+	platform_name = ctx.obj.get("platform") or "zhipin"
 
-	auth = AuthManager(data_dir, logger=logger)
+	if platform_name != "zhipin":
+		emit_error(
+			"login",
+			code="INVALID_PARAM",
+			message=f"当前仅支持 zhipin 平台登录，{platform_name} 登录链路仍在开发中",
+			recoverable=True,
+			recovery_action="boss --platform zhipin login",
+		)
+		return
+
+	auth = AuthManager(data_dir, logger=logger, platform=platform_name)
 	try:
 		token = auth.login(
 			timeout=timeout,

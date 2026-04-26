@@ -43,7 +43,7 @@ def show_cmd(ctx: click.Context, index: int) -> None:
 		)
 		return
 
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 	with get_platform_instance(ctx, auth) as platform:
 		raw = platform.job_card(security_id)
 

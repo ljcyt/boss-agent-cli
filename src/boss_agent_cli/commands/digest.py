@@ -31,7 +31,7 @@ from boss_agent_cli.pipeline_state import build_pipeline_items, select_follow_up
 def digest_cmd(ctx: click.Context, days_stale: int, now_ts_ms: int | None, output_format: str, output_path: Path | None) -> None:
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 
 	with get_platform_instance(ctx, auth) as platform:
 		friend_resp = platform.friend_list(page=1)

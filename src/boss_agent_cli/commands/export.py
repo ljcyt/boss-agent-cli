@@ -25,7 +25,7 @@ def export_cmd(ctx: click.Context, query: str, city: str | None, salary: str | N
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
 
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 	with get_platform_instance(ctx, auth) as platform:
 		all_items: list[dict[str, Any]] = []
 		page = 1

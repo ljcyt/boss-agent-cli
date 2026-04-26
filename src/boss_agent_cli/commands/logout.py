@@ -10,7 +10,7 @@ def logout_cmd(ctx: click.Context) -> None:
 	"""退出登录，清除本地保存的登录态"""
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 	try:
 		auth.logout()
 		emit_success("logout", {"message": "已退出登录"}, hints={

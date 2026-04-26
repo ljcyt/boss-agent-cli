@@ -22,7 +22,7 @@ def resume_cmd(ctx: click.Context, geek_id: str, job_id: str, security_id: str |
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
 
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 	with get_recruiter_platform_instance(ctx, auth) as platform:
 		if exchange_contact:
 			if not uid or not gid or not job_id:

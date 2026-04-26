@@ -17,8 +17,10 @@ class TokenRefreshFailed(Exception):
 
 
 class AuthManager:
-	def __init__(self, data_dir: Path, *, logger: Logger | None = None) -> None:
-		self._store = TokenStore(data_dir / "auth")
+	def __init__(self, data_dir: Path, *, logger: Logger | None = None, platform: str = "zhipin") -> None:
+		self._platform = platform or "zhipin"
+		auth_dir = data_dir / "auth" if self._platform == "zhipin" else data_dir / "auth" / self._platform
+		self._store = TokenStore(auth_dir)
 		self._token: dict[str, Any] | None = None
 		self._logger = logger or Logger()
 

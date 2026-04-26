@@ -15,7 +15,7 @@ def history_cmd(ctx: click.Context, page: int) -> None:
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
 
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 	with get_platform_instance(ctx, auth) as platform:
 		raw = platform.job_history(page)
 		platform_data = platform.unwrap_data(raw) or {}

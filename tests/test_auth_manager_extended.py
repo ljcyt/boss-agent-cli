@@ -34,6 +34,18 @@ def test_get_token_raises_auth_required_when_no_session(mock_store_cls, tmp_path
 
 
 @patch("boss_agent_cli.auth.manager.TokenStore")
+def test_auth_manager_uses_default_zhipin_store_path(mock_store_cls, tmp_path):
+	AuthManager(tmp_path)
+	mock_store_cls.assert_called_once_with(tmp_path / "auth")
+
+
+@patch("boss_agent_cli.auth.manager.TokenStore")
+def test_auth_manager_uses_platform_scoped_store_path_for_zhilian(mock_store_cls, tmp_path):
+	AuthManager(tmp_path, platform="zhilian")
+	mock_store_cls.assert_called_once_with(tmp_path / "auth" / "zhilian")
+
+
+@patch("boss_agent_cli.auth.manager.TokenStore")
 def test_get_token_loads_from_store_and_caches(mock_store_cls, tmp_path):
 	token = {"cookies": {"wt2": "c1"}, "stoken": "s1"}
 	store = _make_store(token=token)

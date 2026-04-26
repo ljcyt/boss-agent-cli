@@ -220,6 +220,16 @@ def test_login_success(mock_auth_cls):
 	mock_auth.login.assert_called_once()
 
 
+def test_login_rejects_non_zhipin_platform():
+	runner = CliRunner()
+	result = runner.invoke(cli, ["--platform", "zhilian", "login"])
+	assert result.exit_code == 1
+	parsed = json.loads(result.output)
+	assert parsed["error"]["code"] == "INVALID_PARAM"
+	assert "仅支持 zhipin" in parsed["error"]["message"]
+	assert parsed["error"]["recovery_action"] == "boss --platform zhipin login"
+
+
 @patch("boss_agent_cli.commands.login.AuthManager")
 def test_login_connection_error_recovery_is_boss_chrome(mock_auth_cls):
 	"""ConnectionError 应返回 NETWORK_ERROR + boss-chrome 恢复建议。"""

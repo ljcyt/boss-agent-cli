@@ -39,7 +39,7 @@ def chat_cmd(ctx: click.Context, page: int, from_who: str | None, days: int | No
 	"""查看沟通列表（支持按发起方、时间筛选，支持导出）"""
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 
 	token = auth.check_status()
 	if token is None:

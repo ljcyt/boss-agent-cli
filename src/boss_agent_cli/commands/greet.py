@@ -43,7 +43,7 @@ def greet_cmd(ctx: click.Context, security_id: str, job_id: str, message: str) -
 			)
 			return
 
-		auth = AuthManager(data_dir, logger=logger)
+		auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 		with get_platform_instance(ctx, auth) as platform:
 			# greet_before hook — allows veto
 			hooks = ctx.obj.get("hooks")
@@ -125,7 +125,7 @@ def batch_greet_cmd(ctx: click.Context, query: str, city: str | None, salary: st
 	count = min(count, 10)
 
 	with CacheStore(data_dir / "cache" / "boss_agent.db") as cache:
-		auth = AuthManager(data_dir, logger=logger)
+		auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 		with get_platform_instance(ctx, auth) as platform:
 			raw = platform.search_jobs(
 				query, city=city, salary=salary, experience=experience,

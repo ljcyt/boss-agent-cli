@@ -28,7 +28,7 @@ def apply_cmd(ctx: click.Context, security_id: str, job_id: str, lid: str) -> No
 			)
 			return
 
-		auth = AuthManager(data_dir, logger=logger)
+		auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 		with get_platform_instance(ctx, auth) as platform:
 			resp = platform.apply(security_id, job_id, lid=lid)
 			if not platform.is_success(resp):

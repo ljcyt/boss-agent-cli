@@ -13,7 +13,7 @@ def interviews_cmd(ctx: click.Context) -> None:
 	"""查看面试邀请列表"""
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 
 	token = auth.check_status()
 	if token is None:

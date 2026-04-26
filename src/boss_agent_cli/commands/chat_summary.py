@@ -15,7 +15,7 @@ from boss_agent_cli.display import handle_auth_errors, handle_error_output, hand
 def chat_summary_cmd(ctx: click.Context, security_id: str, page: int, count: int) -> None:
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 
 	with get_platform_instance(ctx, auth) as platform:
 		friends_resp = platform.friend_list(page=1)

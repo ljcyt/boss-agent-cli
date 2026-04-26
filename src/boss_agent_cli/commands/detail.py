@@ -21,7 +21,7 @@ def detail_cmd(ctx: click.Context, security_id: str, lid: str, job_id: str) -> N
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
 
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 	with get_platform_instance(ctx, auth) as platform:
 		# 优先走 httpx 快速通道：显式传入 > 缓存查找 > 降级浏览器通道
 		if not job_id:

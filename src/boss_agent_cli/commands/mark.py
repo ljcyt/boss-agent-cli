@@ -36,7 +36,7 @@ def mark_cmd(ctx: click.Context, security_id: str, label: str, remove: bool) -> 
 	"""给联系人添加/移除标签"""
 	data_dir = ctx.obj["data_dir"]
 	logger = ctx.obj["logger"]
-	auth = AuthManager(data_dir, logger=logger)
+	auth = AuthManager(data_dir, logger=logger, platform=ctx.obj.get("platform", "zhipin"))
 
 	label_id = _resolve_label(label)
 	label_name = _LABEL_NAMES.get(label_id, str(label_id))
