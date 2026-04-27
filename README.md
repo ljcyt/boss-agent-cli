@@ -130,7 +130,7 @@ uv run patchright install chromium
 # 1. 环境自检
 boss doctor
 
-# 2. 登录（自动四级降级）
+# 2. 登录（按平台选择链路）
 boss login
 
 # 3. 验证登录态
@@ -167,14 +167,17 @@ boss hr jobs list                     # 我发布的职位
 
 ## 🔐 登录链路
 
-`boss login` 采用**四级降级策略**，适配不同环境：
+`boss login` 会按当前平台选择登录链路：
 
-| 级别 | 方式 | 说明 | 需要浏览器？ |
-|:---:|------|------|:---:|
-| 1 | **Cookie 提取** | 从本地 Chrome/Firefox/Edge 等 10+ 浏览器免扫码提取 | 否 |
-| 2 | **CDP 登录** | 复用带 `--remote-debugging-port` 的 Chrome | 需 Chrome |
-| 3 | **QR httpx** | 纯 HTTP 二维码扫码，无需安装任何浏览器 | 否 |
-| 4 | **patchright** | 反检测 Chromium 兜底 | 需 Chromium |
+| 平台 | 登录链路 | 说明 |
+|------|----------|------|
+| `zhipin` | **Cookie 提取 → CDP → QR httpx → patchright** | 保留现有四级降级链路 |
+| `zhilian` | **Cookie 提取 → CDP → 浏览器登录** | 当前优先复用本地浏览器登录态；无 QR httpx 分支 |
+
+补充说明：
+- `boss login` 默认按当前 `--platform` / 配置文件里的 `platform` 工作
+- `boss --platform zhilian login` 已可用，但目前只覆盖**求职者侧**认证链路
+- `boss --platform zhilian hr ...` 仍不支持，招聘者侧继续追踪 [Issue #140](https://github.com/can4hou6joeng4/boss-agent-cli/issues/140)
 
 <details>
 <summary>📖 CDP 启动示例</summary>
@@ -216,6 +219,10 @@ boss --role recruiter ...
 boss hr applications
 boss hr candidates "Golang"
 ```
+
+注意：
+- `boss hr ...` 当前仅支持默认招聘者平台 `zhipin-recruiter`
+- 若当前平台是 `zhilian`，CLI 会在入口直接提示切回 `boss --platform zhipin hr ...`
 
 ### 多平台抽象
 

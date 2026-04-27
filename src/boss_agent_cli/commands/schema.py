@@ -175,7 +175,7 @@ SCHEMA_DATA = {
 	"description": "BOSS直聘求职工具。33 个顶层命令覆盖搜索、筛选、打招呼、沟通、流水线、招聘者工作流与简历优化全流程。",
 	"commands": {
 		"login": {
-			"description": "登录 BOSS 直聘（四级降级：Cookie 提取 → CDP → QR httpx 扫码 → patchright 扫码）",
+			"description": "按当前平台登录（zhipin: Cookie 提取 → CDP → QR httpx → patchright；zhilian: Cookie 提取 → CDP → 浏览器登录）",
 			"args": [],
 			"options": {
 				"--timeout": {

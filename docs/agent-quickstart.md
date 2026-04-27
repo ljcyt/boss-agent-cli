@@ -22,6 +22,7 @@ boss status
 完成标准：
 - `boss doctor` 返回 `ok=true`
 - `boss status` 返回当前登录态
+- 若使用 `zhilian`，请显式带上平台：`boss --platform zhilian doctor && boss --platform zhilian login`
 
 如果你不是直接在终端里手动跑命令，而是准备把它接进 Agent 宿主，先看 [Agent Host Examples](agent-hosts.md) 选择对应接入模板。
 
@@ -65,6 +66,7 @@ boss hr request-resume <friend_id> --job-id <job_id>
 - 先把 `boss schema` 里的 `hr` 命令组当作招聘者能力真源
 - `boss hr <subcommand>` 会自动切到 recruiter 角色，不需要额外推断 `--role`
 - 求职者与招聘者两端都遵守同一套 `stdout JSON / stderr 日志` 契约
+- 当前 `hr` 只支持 `zhipin-recruiter`；若当前平台切到 `zhilian`，CLI 会直接拒绝执行 recruiter 子命令
 
 ## 3) 失败恢复与排障
 

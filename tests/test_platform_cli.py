@@ -83,6 +83,16 @@ class TestPlatformGlobalOption:
 		assert "zhilian" in tool["function"]["description"]
 		assert "zhipin" in tool["function"]["description"]
 
+	def test_schema_login_description_mentions_platform_aware_flow(self, runner: CliRunner) -> None:
+		from boss_agent_cli.main import cli
+
+		result = runner.invoke(cli, ["schema"])
+		assert result.exit_code == 0
+		payload = json.loads(result.output)
+		login_desc = payload["data"]["commands"]["login"]["description"]
+		assert "zhipin" in login_desc
+		assert "zhilian" in login_desc
+
 
 class TestGetPlatformInstanceHelper:
 	"""get_platform_instance(ctx, auth) helper。"""
