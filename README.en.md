@@ -211,7 +211,7 @@ See [Agent Quickstart](docs/agent-quickstart.en.md) and [Capability Matrix](docs
 | **Auth** | `login` · `logout` · `status` · `doctor` |
 | **Discover** | `search` · `detail` · `show` · `cities` · `history` |
 | **Restricted Actions** | `greet` · `batch-greet` · `apply` · `exchange` · `mark` are blocked by default |
-| **Restricted Track** | `chat` · `chatmsg` · `chat-summary` · `pipeline` · `follow-up` · `digest` are blocked by default; use `stats` for local state |
+| **Restricted Track** | `chat` · `chatmsg` · `chat-summary` · `pipeline` · `follow-up` · `digest` are blocked by default; `chatmsg --raw` preserves structured body/link/card fields only after compliance allows the command; use `stats` for local state |
 | **Organize** | `watch` · `preset` · `shortlist` |
 | **Resume** | `resume` · `me` |
 | **AI** | `ai config` · `ai analyze-jd` · `ai polish` · `ai optimize` · `ai suggest` · `ai reply` · `ai interview-prep` · `ai chat-coach` |
@@ -219,6 +219,15 @@ See [Agent Quickstart](docs/agent-quickstart.en.md) and [Capability Matrix](docs
 | **Recruiter** | `hr jobs list/offline/online`; candidate-data and messaging workflows are blocked by default |
 
 Run `boss <cmd> --help` for options, or `boss schema` for the complete JSON self-description.
+
+Search and export can reuse filters selected manually on the BOSS web UI:
+
+```bash
+boss search --url 'https://www.zhipin.com/web/geek/jobs?query=Golang&city=101280100&experience=104,105'
+boss export --url 'https://www.zhipin.com/web/geek/jobs?query=Golang&city=101280100' --count 50 -o jobs.csv
+```
+
+Parameter mode also supports comma-separated multi-select filters such as `--experience "应届,3-5年"` and `--education "本科,硕士"`.
 
 **Export for any agent framework** — no MCP required:
 
@@ -232,7 +241,11 @@ boss schema --format anthropic-tools   # Claude Tool Use API
 If something misbehaves, always start with:
 
 ```bash
-boss doctor   # outputs JSON with 7 diagnostic checks
+boss doctor
+boss status
+# Optional: run an explicit low-frequency read-only live probe
+boss status --live
+boss doctor --live-probe
 ```
 
 <details>
@@ -243,10 +256,21 @@ boss doctor   # outputs JSON with 7 diagnostic checks
 | `python_version` | Python ≥ 3.10 installed |
 | `patchright_chromium` | Chromium installed |
 | `cookie_extract` | Local browser cookies accessible |
+| `credential_file` | Encrypted credential file exists and is readable |
 | `auth_session` | Encrypted session file readable |
+| `cookie_presence` / `wt2_presence` | Cookies and the primary auth cookie are present |
+| `stoken_presence` / `stoken_freshness` | `__zp_stoken__` exists and is likely fresh |
 | `auth_token_quality` | Core tokens (wt2 / stoken) present |
 | `cookie_completeness` | Auxiliary tokens (wbg / zp_at) |
 | `cdp` | Chrome DevTools Protocol reachable |
+| `bridge_daemon` | Local Browser Bridge daemon is reachable |
+| `bridge_extension` | Chrome extension is connected to the daemon |
+| `bridge_protocol` | CLI and extension version/protocol are compatible |
+| `bridge_workspace` | Current Bridge workspace/tab is usable |
+| `bridge_exec` / `bridge_fetch` / `bridge_navigate` | Basic extension execution, browser fetch, and navigation capabilities |
+| `browser_channel` | CDP/Bridge summary; not a risk-control bypass path |
+| `candidate_search_health` / `candidate_detail_health` | Candidate read-only prerequisites |
+| `recruiter_read_health` | Recruiter read-only prerequisites; Zhaopin recruiter mode is explicitly marked unsupported |
 | `network` | zhipin.com reachable |
 
 </details>
@@ -267,11 +291,25 @@ boss logout && boss login
 
 Stop automated access and return to the official BOSS Zhipin website. Do not retry the blocked action through CDP, patchright, or Browser Bridge.
 
+### Browser Bridge is not connected
+
+```bash
+python -m boss_agent_cli.bridge.daemon --serve
+# Then load and enable extension/ from chrome://extensions, and run:
+boss doctor
+```
+
+`bridge_daemon`, `bridge_extension`, `bridge_protocol`, `bridge_workspace`,
+`bridge_exec`, `bridge_fetch`, and `bridge_navigate` show the local daemon,
+extension, tab, and basic browser-command health. Bridge is only for local diagnostics,
+user-triggered login compatibility, and read-only assistance. Do not use it to
+retry platform risk-control blocks.
+
 ### Token expired mid-session
 
 ```bash
 # stoken (core session token) expires after ~24h
-# Re-login — auth_token_quality will report the issue
+# Re-login or use Chrome CDP hydration; auth_token_quality will report the issue
 boss logout && boss login
 ```
 

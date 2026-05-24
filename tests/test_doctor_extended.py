@@ -36,7 +36,12 @@ def _invoke_doctor(tmp_path=None, platform="zhipin", **overrides):
 		patch("boss_agent_cli.bridge.client.BridgeClient") as mock_bridge,
 	):
 		# BridgeClient 构造不抛异常，但 is_running 返回 False
-		mock_bridge.return_value.is_running.return_value = False
+		mock_bridge.return_value.diagnose.return_value = [{
+			"name": "bridge_daemon",
+			"status": "warn",
+			"detail": "Bridge daemon 未运行或无法访问 http://127.0.0.1:19826",
+			"recovery_action": "运行 Bridge daemon 或检查端口占用",
+		}]
 		# 默认值
 		mock_auth.return_value.check_status.return_value = overrides.get("token", None)
 		mock_cdp.return_value = overrides.get("cdp_ws", None)
@@ -77,7 +82,7 @@ def test_all_checks_pass(tmp_path):
 	assert code == 0
 	assert parsed["ok"] is True
 	# 核心逻辑检查项（不依赖本机工具链）应全部为 ok
-	env_dependent = {"patchright", "patchright_chromium", "browser", "auth_salt"}
+	env_dependent = {"patchright", "patchright_chromium", "browser", "auth_salt", "bridge_daemon"}
 	for check in parsed["data"]["checks"]:
 		if check["name"] in env_dependent:
 			continue
@@ -161,6 +166,8 @@ def test_auth_logged_in_full(tmp_path):
 	quality = _find_check(parsed["data"]["checks"], "auth_token_quality")
 	assert quality["status"] == "ok"
 	assert "完整" in quality["detail"]
+	stoken_presence = _find_check(parsed["data"]["checks"], "stoken_presence")
+	assert stoken_presence["status"] == "ok"
 
 
 def test_auth_logged_in_no_stoken(tmp_path):
@@ -170,6 +177,10 @@ def test_auth_logged_in_no_stoken(tmp_path):
 	quality = _find_check(parsed["data"]["checks"], "auth_token_quality")
 	assert quality["status"] == "warn"
 	assert "stoken 缺失" in quality["detail"]
+	stoken_presence = _find_check(parsed["data"]["checks"], "stoken_presence")
+	assert stoken_presence["status"] == "warn"
+	assert "CDP" in stoken_presence["recovery_action"]
+	assert parsed["data"]["auth_state"] == "partial"
 
 
 def test_auth_logged_in_no_wt2(tmp_path):
@@ -252,6 +263,74 @@ def test_cdp_probe_exception(tmp_path):
 	assert "probe boom" in cdp_check["detail"]
 
 
+def test_bridge_diagnostics_are_included(tmp_path):
+	"""doctor 应输出拆分后的 Bridge daemon/extension/protocol/workspace 检查。"""
+	bridge_checks = [
+		{"name": "bridge_daemon", "status": "ok", "detail": "Bridge daemon 运行中 pid=123 uptime=7s"},
+		{"name": "bridge_extension", "status": "ok", "detail": "Chrome 扩展已连接 version=1.0.0"},
+		{"name": "bridge_protocol", "status": "ok", "detail": "扩展协议版本 1.0.0；CLI 期望 major=1"},
+		{"name": "bridge_workspace", "status": "ok", "detail": "Bridge workspace/tab 可用: https://www.zhipin.com/web/geek/job"},
+		{"name": "bridge_exec", "status": "ok", "detail": "Bridge exec 基础能力可用"},
+		{"name": "bridge_fetch", "status": "ok", "detail": "Bridge fetch 基础能力可用"},
+		{"name": "bridge_navigate", "status": "ok", "detail": "Bridge navigate 基础能力可用"},
+	]
+	paths = _base_patches()
+	runner = CliRunner()
+	with (
+		patch(paths["auth"]) as mock_auth,
+		patch(paths["cdp"]) as mock_cdp,
+		patch(paths["httpx"]) as mock_httpx,
+		patch(paths["cookie"]) as mock_cookie,
+		patch("boss_agent_cli.bridge.client.BridgeClient") as mock_bridge,
+	):
+		mock_auth.return_value.check_status.return_value = None
+		mock_cdp.return_value = None
+		mock_cookie.return_value = None
+		mock_httpx.return_value = MagicMock(status_code=200)
+		mock_bridge.return_value.diagnose.return_value = bridge_checks
+
+		result = runner.invoke(cli, ["--data-dir", str(tmp_path), "doctor"])
+
+	parsed = json.loads(result.output)
+	checks = parsed["data"]["checks"]
+	for name in ("bridge_daemon", "bridge_extension", "bridge_protocol", "bridge_workspace", "bridge_exec", "bridge_fetch", "bridge_navigate"):
+		assert _find_check(checks, name) is not None
+	browser_channel = _find_check(checks, "browser_channel")
+	assert browser_channel["status"] == "ok"
+	assert "Bridge" in browser_channel["detail"]
+
+
+def test_bridge_diagnostics_do_not_expose_secrets(tmp_path):
+	"""doctor 输出不应泄漏 Bridge 诊断中的 cookie/header/token 字样值。"""
+	bridge_checks = [{
+		"name": "bridge_workspace",
+		"status": "ok",
+		"detail": "Bridge workspace/tab 可用: https://www.zhipin.com/web/geek/job",
+		"tab_url": "https://www.zhipin.com/web/geek/job",
+	}]
+	paths = _base_patches()
+	runner = CliRunner()
+	with (
+		patch(paths["auth"]) as mock_auth,
+		patch(paths["cdp"]) as mock_cdp,
+		patch(paths["httpx"]) as mock_httpx,
+		patch(paths["cookie"]) as mock_cookie,
+		patch("boss_agent_cli.bridge.client.BridgeClient") as mock_bridge,
+	):
+		mock_auth.return_value.check_status.return_value = None
+		mock_cdp.return_value = None
+		mock_cookie.return_value = None
+		mock_httpx.return_value = MagicMock(status_code=200)
+		mock_bridge.return_value.diagnose.return_value = bridge_checks
+
+		result = runner.invoke(cli, ["--data-dir", str(tmp_path), "doctor"])
+
+	raw = result.output.lower()
+	assert "cookie_value" not in raw
+	assert "authorization" not in raw
+	assert "secret_token" not in raw
+
+
 # ── 7. 输出 JSON 格式正确性 ─────────────────────────────────────────
 
 def test_json_envelope_structure(tmp_path):
@@ -266,7 +345,9 @@ def test_json_envelope_structure(tmp_path):
 	# data 子字段
 	data = parsed["data"]
 	assert "summary" in data
+	assert "auth_state" in data
 	assert "data_dir" in data
+	assert "live_probe" in data
 	assert "check_count" in data
 	assert "checks" in data
 	assert isinstance(data["checks"], list)
@@ -355,7 +436,7 @@ def test_next_actions_suggests_status_when_logged_in(tmp_path):
 	token = {"cookies": {"wt2": "tok"}, "stoken": "st"}
 	code, parsed = _invoke_doctor(tmp_path, token=token, cdp_ws="ws://x")
 	actions = parsed["hints"]["next_actions"]
-	assert any("boss status" in a for a in actions)
+	assert any("boss status --live" in a for a in actions)
 
 
 # ── Cookie 完整性检查（wbg/zp_at） ─────────────────────────────────
@@ -378,6 +459,80 @@ def test_cookie_completeness_missing_wbg(tmp_path):
 	assert completeness is not None
 	assert completeness["status"] == "warn"
 	assert "wbg" in completeness["detail"]
+
+
+def test_doctor_includes_layered_auth_health_checks(tmp_path):
+	token = {"cookies": {"wt2": "tok"}, "stoken": "stoken_val"}
+	code, parsed = _invoke_doctor(tmp_path, token=token)
+	names = {item["name"] for item in parsed["data"]["checks"]}
+	assert {
+		"credential_file",
+		"cookie_presence",
+		"wt2_presence",
+		"stoken_presence",
+		"stoken_freshness",
+		"candidate_search_health",
+		"candidate_detail_health",
+		"recruiter_read_health",
+	}.issubset(names)
+
+
+def test_doctor_redacts_sensitive_token_values(tmp_path):
+	token = {
+		"cookies": {"wt2": "secret-wt2", "wbg": "secret-wbg", "zp_at": "secret-zp"},
+		"stoken": "secret-stoken",
+		"user_agent": "ua",
+	}
+	code, parsed = _invoke_doctor(tmp_path, token=token, cookie={"cookies": {"wt2": "secret-wt2"}})
+	output = json.dumps(parsed, ensure_ascii=False)
+	assert "secret-wt2" not in output
+	assert "secret-stoken" not in output
+	assert "secret-zp" not in output
+
+
+def test_doctor_marks_zhilian_recruiter_read_unsupported(tmp_path):
+	token = {"cookies": {"zp_token": "tok", "at": "a", "rt": "r"}, "x_zp_client_id": "cid"}
+	code, parsed = _invoke_doctor(tmp_path, platform="zhilian", token=token)
+	recruiter = _find_check(parsed["data"]["checks"], "recruiter_read_health")
+	assert recruiter["status"] == "warn"
+	assert "暂未接入" in recruiter["detail"]
+
+
+@patch("boss_agent_cli.commands.doctor.get_recruiter_platform_instance")
+@patch("boss_agent_cli.commands.doctor.get_platform_instance")
+def test_doctor_live_probe_adds_readonly_probe_checks(mock_platform_cls, mock_recruiter_cls, tmp_path):
+	paths = _base_patches()
+	runner = CliRunner()
+	with (
+		patch(paths["auth"]) as mock_auth,
+		patch(paths["cdp"]) as mock_cdp,
+		patch(paths["httpx"]) as mock_httpx,
+		patch(paths["cookie"]) as mock_cookie,
+		patch("boss_agent_cli.bridge.client.BridgeClient") as mock_bridge,
+	):
+		mock_bridge.return_value.is_running.return_value = False
+		mock_auth.return_value.check_status.return_value = {"cookies": {"wt2": "tok"}, "stoken": "st"}
+		mock_cdp.return_value = None
+		mock_cookie.return_value = None
+		mock_httpx.return_value = MagicMock(status_code=200)
+
+		platform = mock_platform_cls.return_value
+		platform.__enter__ = lambda self: self
+		platform.__exit__ = lambda self, *a: None
+		platform.user_info.return_value = {"zpData": {"name": "tester"}}
+		platform.is_success.return_value = True
+
+		recruiter = mock_recruiter_cls.return_value
+		recruiter.__enter__ = lambda self: self
+		recruiter.__exit__ = lambda self, *a: None
+		recruiter.list_jobs.return_value = {"zpData": {"list": []}}
+		recruiter.is_success.return_value = True
+
+		result = runner.invoke(cli, ["--data-dir", str(tmp_path), "doctor", "--live-probe"])
+
+	parsed = json.loads(result.output)
+	assert _find_check(parsed["data"]["checks"], "candidate_live_user_info")["status"] == "ok"
+	assert _find_check(parsed["data"]["checks"], "recruiter_live_read")["status"] == "ok"
 
 
 def test_cookie_completeness_missing_zp_at(tmp_path):

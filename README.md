@@ -376,7 +376,7 @@ except AuthRequired:
 
 | 命令 | 说明 |
 |------|------|
-| `boss search <query>` | 搜索职位（支持 `--welfare` 筛选、`--preset` 预设） |
+| `boss search <query>` | 搜索职位（支持 `--url` 网页筛选、逗号多选、`--welfare` 筛选、`--preset` 预设） |
 | `boss recommend` | 受限：默认低风险模式阻断，避免自动读取推荐流 |
 | `boss detail <security_id>` | 职位详情（`--job-id` 走快速通道） |
 | `boss show <#>` | 按编号查看上次搜索结果 |
@@ -396,7 +396,7 @@ except AuthRequired:
 | 命令 | 说明 |
 |------|------|
 | `boss chat` | 受限：默认低风险模式阻断，涉及会话数据 |
-| `boss chatmsg <sid>` | 受限：默认低风险模式阻断，涉及通信内容 |
+| `boss chatmsg <sid> [--raw]` | 受限：默认低风险模式阻断；`--raw` 仅在合规放行后保留结构化 body、链接和职位卡片字段 |
 | `boss chat-summary <sid>` | 受限：默认低风险模式阻断，依赖通信内容 |
 | `boss mark <sid> --label X` | 受限：默认低风险模式阻断，涉及平台关系写入 |
 | `boss interviews` | 面试邀请 |
@@ -451,7 +451,7 @@ except AuthRequired:
 | `boss config list/set/reset` | 配置管理 |
 | `boss clean` | 清理缓存 |
 | `boss stats` | 投递转化漏斗统计（greeted/applied/shortlist） |
-| `boss export <query>` | 导出结果（CSV/JSON） |
+| `boss export <query>` | 导出结果（CSV/JSON/HTML，支持 `--url` 网页筛选） |
 
 <details>
 <summary>🔎 搜索筛选参数详解</summary>
@@ -460,12 +460,19 @@ except AuthRequired:
 boss search "golang" \
   --city 广州 \             # 城市（40 个可选）
   --salary 20-50K \         # 薪资范围
-  --experience 3-5年 \      # 经验要求
-  --education 本科 \        # 学历要求
+  --experience 3-5年,5-10年 \ # 经验要求（支持逗号多选）
+  --education 本科,硕士 \    # 学历要求（支持逗号多选）
   --scale 100-499人 \       # 公司规模
   --industry 互联网 \       # 行业
   --stage 已上市 \          # 融资阶段
   --welfare "双休,五险一金"  # 福利筛选（AND 逻辑）
+```
+
+也可以先在 BOSS 直聘网页上手动选好筛选条件，再复制搜索页 URL 给 CLI：
+
+```bash
+boss search --url 'https://www.zhipin.com/web/geek/jobs?query=Golang&city=101280100&experience=104,105'
+boss export --url 'https://www.zhipin.com/web/geek/jobs?query=Golang&city=101280100' --count 50 -o jobs.csv
 ```
 
 **福利筛选工作原理**：
@@ -484,6 +491,10 @@ boss search "golang" \
 
 ```bash
 boss doctor
+boss status
+# 可选：执行一次低频只读平台验证
+boss status --live
+boss doctor --live-probe
 ```
 
 | 检查项 | 说明 |
@@ -492,10 +503,21 @@ boss doctor
 | `patchright` | CLI 已安装 |
 | `patchright_chromium` | Chromium 已安装 |
 | `cookie_extract` | 本地浏览器 Cookie 可提取 |
+| `credential_file` | 登录态文件是否存在且可读取 |
 | `auth_session` | 登录态存在且可解密 |
+| `cookie_presence` / `wt2_presence` | Cookie 与核心 Cookie 是否存在 |
+| `stoken_presence` / `stoken_freshness` | `__zp_stoken__` 是否生成、是否可能过期 |
 | `auth_token_quality` | 核心凭据（wt2 / stoken） |
 | `cookie_completeness` | 辅助凭据（wbg / zp_at） |
 | `cdp` | Chrome 调试端口可连 |
+| `bridge_daemon` | 本地 Browser Bridge daemon 是否运行 |
+| `bridge_extension` | Chrome 扩展是否连接 daemon |
+| `bridge_protocol` | CLI 与扩展版本/协议是否兼容 |
+| `bridge_workspace` | Bridge 当前 workspace/tab 是否可用 |
+| `bridge_exec` / `bridge_fetch` / `bridge_navigate` | 扩展基础执行、浏览器 fetch 与导航能力 |
+| `browser_channel` | CDP/Bridge 汇总状态；不得用于规避平台风控 |
+| `candidate_search_health` / `candidate_detail_health` | 求职者只读能力前置条件 |
+| `recruiter_read_health` | 招聘者只读能力前置条件；智联招聘者侧会明确标记暂未接入 |
 | `network` | zhipin.com 可访问 |
 
 <details>
@@ -510,14 +532,27 @@ boss logout && boss login
 
 # CDP 诊断
 boss --cdp-url http://localhost:9222 doctor
+
+# Browser Bridge 诊断
+python -m boss_agent_cli.bridge.daemon --serve
+# 在 Chrome 的 chrome://extensions 中加载并启用 extension/ 后，再运行：
+boss doctor
+
+# 默认 status 只检查本地凭据；需要真实只读验证时显式加 --live
+boss status --live
 ```
 
 **auth_session 显示"损坏"**：登录态来自旧机器指纹或文件损坏 → `boss logout && boss login`
 
 **auth_token_quality 各状态含义**：
 - `wt2/stoken 均存在`：完整，可正常使用
-- `wt2 存在，stoken 缺失`：部分可用，接口失败时 `boss login` 刷新
+- `wt2 存在，stoken 缺失`：部分可用，通常是二维码或 Cookie 提取只拿到部分登录态；建议以 Chrome CDP 远程调试端口启动浏览器后运行 `boss login --cdp`，或重新执行 `boss login`
 - `wt2 缺失`：无效 → `boss logout && boss login`
+
+**bridge_daemon / bridge_extension 显示 warn**：本地 daemon 未运行或扩展未连接。
+先启动 daemon，确认 19826 端口未被占用，再到 `chrome://extensions` 加载并启用
+`extension/`。Bridge 只用于本地诊断、用户主动登录兼容和只读辅助；命中平台
+风控时应停止自动化访问，不要切换到 Bridge 重试。
 
 </details>
 
